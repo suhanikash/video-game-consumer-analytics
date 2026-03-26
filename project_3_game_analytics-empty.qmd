@@ -1,0 +1,528 @@
+---
+title: " Project 3 - Games Survey Analysis"
+author: "Suhani Kashyap"
+format: 
+  html:
+    self-contained: true
+    embed-resources: true
+    toc: true
+    code-fold: false
+    theme: cosmo
+---
+
+```{r}
+# List of needed packages
+packages <- c("readxl","car","ggcorrplot")
+
+# Check which are not installed
+not_installed <- packages[!(packages %in% installed.packages()[, "Package"])]
+
+# Install missing ones
+if(length(not_installed)) {
+  install.packages(not_installed)
+}
+
+```
+
+```{r setup, warning=FALSE, message=FALSE}
+
+library(here)                   ## Data Extraction
+library(readxl)                 ## Data Extraction
+library(dplyr)                  ## Data Transformation
+library(broom)                  ## Data Visualization
+library(ggplot2)                ## Data Visualization
+library(car)                    ## Data Analysis
+library(stringr)
+library(ggcorrplot)
+```
+
+```{r}
+games_df <- read_xlsx(here("Data", "geography_quiz.xlsx"))
+```
+
+**Task 2:** The following code provides how to rename variables in your dataset to improve clarity and consistency. Please carefully read through the survey questions and the variable names in your dataset. Confirm that each variable in 'games_df' matches the corresponding survey question and is correctly renamed.
+
+```{r}
+games_df <- games_df |> 
+  rename(
+    pct_correct = `What percentage of U.S. states did you correctly recall by name on the test?`,
+    game_first = `Which game did you play 1st?`,
+    sudoku_secs = `How many seconds did you use to finish the Sudoku game?\r\nIf you used the full time limit of 5 minutes, enter 300 seconds.`,
+    geo_secs = `How much time did it take to complete the US geography game? If you used the full time limit of 5 minutes, enter 300 seconds.`,
+    sudoku_freq = `How often do you play sudoku?`,
+    states_visited = `How many different U.S. states have you physically visited?`,
+    news_mins = `On a typical weekday, about how many minutes do you spend following U.S. news (articles, videos, or social media about current events)?`,
+    confidence = `Compared to other students in your major, how confident are you in your academic abilities?`,
+    map_comfort = `How comfortable are you reading and interpreting maps?`,
+    social_mins = `How many minutes per day do you spend on social media?`
+  ) |> 
+  mutate(
+    pct_correct = as.numeric(pct_correct),
+    sudoku_secs = as.numeric(sudoku_secs),
+    geo_secs = as.numeric(geo_secs),
+    states_visited = as.numeric(states_visited),
+    confidence = as.numeric(confidence),
+    social_mins = as.numeric(social_mins),
+    # Convert news minutes like "> 20 minutes" or "1 - 5 minutes" into midpoints
+    news_mins = case_when(
+      str_detect(news_mins, "1") ~ 3,
+      str_detect(news_mins, "5") & !str_detect(news_mins, ">") ~ 5,
+      str_detect(news_mins, "20") ~ 20,
+      TRUE ~ NA_real_
+    ),
+    game_first = factor(game_first),
+    sudoku_freq = factor(sudoku_freq, levels = c("Never", "Sometimes", "Often")),
+    map_comfort = factor(map_comfort, levels = 1:5)
+  )
+
+```
+
+A **correlation plot** (corrplot) is a graphical representation of the correlation matrix, which summarizes how pairs of quantitative variables in a dataset relate to each other. Each cell in the plot shows a correlation coefficient that ranges from –1 to +1, where values close to +1 indicate a strong positive linear relationship, values close to –1 indicate a strong negative relationship, and values near 0 suggest little to no linear association. The color and intensity of each cell convey both the direction and strength of these relationships—for example, darker blues may represent strong positive correlations, while darker reds indicate strong negative ones. This visualization provides a quick way to identify patterns, clusters of related variables, and potential multicollinearity issues before conducting regression analyses.
+
+```{r}
+#| label: corr-plot
+#| message: false
+#| warning: false
+
+
+
+# Select only numeric columns
+numeric_df <- games_df[, sapply(games_df, is.numeric)]
+
+# Compute correlation matrix (use pairwise complete obs)
+corr_matrix <- cor(numeric_df, use = "pairwise.complete.obs")
+
+# Plot correlation matrix
+ggcorrplot(
+  corr_matrix,
+  lab = TRUE,
+  lab_size = 3,
+  method = "square",
+  type = "lower",
+  title = "Correlation Plot of Quantitative Variables in games_df",
+  ggtheme = ggplot2::theme_minimal()
+)
+
+```
+
+**Task 3:** Examine the correlation plot above to gain insights into the relationships between the quantitative variables in your dataset. The plot visually highlights which pairs of variables are strongly or weakly correlated, helping you identify patterns, potential associations, and areas for further analysis.
+
+## Instruction for Assignment
+
+### Description:
+
+This project is designed to help students develop skills in statistical question formulation, data visualization, and regression modeling using R. You will analyze data related to geographic quiz and sudoku performance, selecting appropriate response and explanatory variables, and applying both visual and modeling techniques. The assignment provides step-by-step guidance, including examples and syntax using the `mtcars` dataset for reference. By completing this project, you will create a portfolio-ready analysis that demonstrates your proficiency in data analysis and statistical modeling. You are encouraged to explore advanced questions and techniques to deepen your understanding and showcase your abilities.
+
+**Note 1: You should remove mtcars analysis and any description of this project for an item for your portfolio.**
+
+**Note 2: Make sure the data set is saved in the Data folder that we created for this class earlier in the quarter.**
+
+**Note 3: Make sure you save this file in the project_3 folder you created for this project along side `project-3-functions.r` so that you can create assess the best model later in the project.**
+
+###### Task 1: What is the most logical choice for your response variable, given the context of your data and analysis goals? Explain your reasoning.
+
+### A) Develop 4 Statistical Questions
+
+#### A.1. Description:
+
+You should develop 4 statistical questions that can be addressed using both visualizations and models. Your questions should involve at least 3 variables each, and you should ensure that they can be answered within the constraints of the variable types specified for the visualizations and models you will create later in the assignment.
+
+You should start by thinking about the types of visualizations (B) you want to create, before or while developing your statistical questions (A). This approach ensures your questions are tailored to the specific types of plots and variable combinations required for the assignment. Once you have your questions and visualizations planned, you can then proceed to develop the corresponding models (C). Make sure your questions are answerable using the variable constraints provided for both visualizations and models.
+
+#### A.2. Examples - of questions you that could be asked using *mtcars*:
+
+##### Q1: What is the relationship between miles per gallon (`mpg`), vehicle weight (`wt`), and horsepower (`hp`)?
+
+##### Q2: To what extent can miles per gallon (`mpg`) be explained by vehicle weight (`wt`) and engine shape (`vs`)?
+
+##### Q3: How do vehicle weight (`wt`), horsepower (`hp`), and engine shape (`vs`) together influence miles per gallon (`mpg`)? (We did not do this in class)
+
+##### Q4: In what way do vehicle weight (`wt`), horsepower (`hp`), engine shape (`vs`), and transmission type (`am`) collectively affect miles per gallon (`mpg`)? (This is an example, you should create your own questions based on the data you have collected)
+
+### A.3. Place your questions here (Tasks: 4 - 7):
+
+###### \[Statistical Question 1:\] What is the relationship between Geo Quiz seconds (geo_secs) and Percentage of States identified correctly (pct_correct)?
+
+###### \[Statistical Question 2:\] To what extent does Map Comfort (map_comfort) correlate with student's scores on the geography quiz?
+
+###### \[Statistical Question 3:\] Does the game that students played first (game_first) and the time that students took to finish the geography game (geo_secs) relate to student's score on the geography quiz?
+
+###### \[Statistical Question 4:\] How do students’ map comfort levels (`map_comfort`), number of states visited (`states_visited`), and time spent following U.S. news (`news_mins`) relate to their performance on the U.S. geography recall test (`pct_correct`)?
+
+### B) Develop 4 Visualizations based on your 4 statistical questions
+
+#### B.1. Description:
+
+Create 4 visualizations that help answer your questions. Each visualization should include at least 3 variables, with different combinations of categorical and quantitative explanatory variables as specified below. Use ChatGPT to help with the syntax if needed. Provide clear labels, titles, and legends to ensure the visualizations are easy to interpret. **Also, provide clear interpretations of each visualization, explaining what insights can be drawn from the data.**
+
+##### Visualization 1: Two Quantitative Explanatory Variables
+
+**Description:** Create a visualization that explores the relationship between one response variable and two quantitative explanatory variables. For example, you might use a scatter plot with color or size representing the second explanatory variable. **Instruction:** Choose two quantitative variables as explanatory variables and one quantitative response variable. Clearly label axes and include a legend if needed.
+
+##### Visualization 2: One Categorical and One Quantitative Explanatory Variable
+
+**Description:** Visualize how a categorical explanatory variable and a quantitative explanatory variable together relate to a response variable. For example, use a boxplot grouped by the categorical variable, with the quantitative variable shown as a secondary feature (e.g., color or facet). **Instruction:** Select one categorical and one quantitative explanatory variable, and one response variable. Make sure the categorical variable is clearly distinguished in the plot.
+
+##### Visualization 3: One Categorical and Two Quantitative Explanatory Variables (We did not do this in class)
+
+**Description:** Create a visualization that incorporates one categorical and two quantitative explanatory variables to show their combined effect on a response variable. For example, use a faceted scatter plot or a grouped bar chart. **Instruction:** Choose one categorical and two quantitative explanatory variables, and one response variable. Use facets, color, or grouping to make the categorical variable clear.
+
+##### Visualization 4: At Least Four Variables
+
+**Description:** Develop a visualization that includes at least four variables (any combination of categorical and quantitative) to provide a comprehensive view of the data. This could be a multi-dimensional scatter plot, a heatmap, or another advanced visualization . You are expected to use ChatGPT to help with you exploring your creativity. Come to learning hours if you need help brainstorming ideas. **Instruction:** Select at least four variables from your dataset. Use visualization techniques that allow you to display all variables clearly, such as color, shape, size, or facets. Ask ChatGPT for syntax help if needed.
+
+#### B.2. Examples: Visualization Syntax with *mtcars*
+
+##### **Q1 What is the relationship between miles per gallon (`mpg`), vehicle weight (`wt`), and horsepower (`hp`)?**
+
+```{r}
+ggplot(mtcars, aes(x = wt, y = mpg, color = hp)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_gradient(low = "skyblue", high = "darkred") +
+  labs(
+    title = "Q1: Relationship Between MPG, Vehicle Weight, and Horsepower",
+    x = "Vehicle Weight (1000 lbs)",
+    y = "Miles per Gallon (mpg)",
+    color = "Horsepower"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.position = "bottom"
+    )
+```
+
+**Interpretation:**
+
+------------------------------------------------------------------------
+
+##### **Q2 To what extent can miles per gallon (`mpg`) be explained by vehicle weight (`wt`) and engine shape (`vs`)?**
+
+```{r}
+ggplot(mtcars, aes(x = wt, y = mpg, color = factor(vs))) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Q2: MPG Explained by Vehicle Weight and Engine Shape",
+    x = "Vehicle Weight (1000 lbs)",
+    y = "Miles per Gallon (mpg)",
+    color = "Engine Shape (vs: 0 = V-engine, 1 = Straight)"
+  ) +
+  theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.position = "bottom"
+    )
+    
+```
+
+**Interpretation:**
+
+------------------------------------------------------------------------
+
+##### **Q3 How do vehicle weight (`wt`), horsepower (`hp`), and engine shape (`vs`) together influence miles per gallon (`mpg`)?** (We did not do this in class)
+
+```{r}
+ggplot(mtcars, aes(x = wt, y = mpg, color = hp, shape = factor(vs))) +
+  geom_point(size = 3) +
+  scale_color_gradient(low = "lightblue", high = "darkred") +
+  labs(
+    title = "Q3: Combined Effect of Weight, Horsepower,\n and Engine Shape on MPG",
+    x = "Vehicle Weight (1000 lbs)",
+    y = "Miles per Gallon (mpg)",
+    color = "Horsepower",
+    shape = "Engine Shape"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.position = "bottom")
+```
+
+**Interpretation:**
+
+------------------------------------------------------------------------
+
+##### **Q4 In what way do vehicle weight (`wt`), horsepower (`hp`), engine shape (`vs`), and transmission type (`am`) collectively affect miles per gallon (`mpg`)?**
+
+```{r}
+ggplot(mtcars, aes(x = wt, y = mpg, color = hp)) +
+  geom_point(size = 3, aes(shape = factor(am))) +
+  facet_wrap(~ vs, labeller = labeller(vs = c("0" = "V-Engine", "1" = "Straight Engine"))) +
+  scale_color_gradient(low = "lightblue", high = "darkred") +
+  labs(
+    title = "Q4: Interaction of Weight, HP, Engine, and Transmission Type on MPG",
+    x = "Vehicle Weight (1000 lbs)",
+    y = "Miles per Gallon (mpg)",
+    color = "Horsepower",
+    shape = "Transmission (am: 0 = Auto, 1 = Manual)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.position = "bottom")
+```
+
+**Interpretation:**
+
+### B.3. Place your visualizations and here (Tasks: 8 - 11):
+
+###### \[Statistical Question 1 Visualization:\] What is the relationship between Geo Quiz seconds (geo_secs) and Percentage of States identified correctly (pct_correct)?
+
+```{r}
+ggplot(games_df, aes(x = geo_secs, y = pct_correct)) +
+  geom_point(size = 3, alpha = 0.8) +
+  labs(
+    title = "Q1: Relationship Between Geo Quiz Time and Percentage Correct",
+    x = "Geography Quiz Time (seconds)",
+    y = "Percentage Correct"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.position = "bottom"
+    )
+```
+
+Interpretation: There appears to be some data issues here. The limit for the geography quiz time should be 300 seconds however there appear to be some outliers outside of that range. Some people may have also been confused with seconds and minutes for this question, as there is a high unlikelihood that people solved the geography quiz in around 5 seconds. There seems to be a slight downward sloping pattern from around 100 seconds to 300 seconds. This means that as the time that a student took to complete the quiz increased, the student's score tended to decrease.
+
+###### \[Statistical Question 2 Visualization:\] To what extent does Map Comfort (map_comfort) correlate with a student's score on the geography quiz (pct_correct)?
+
+```{r}
+ggplot(games_df, aes(x = map_comfort, y = pct_correct)) +
+  geom_boxplot(fill = "skyblue", alpha = 0.6) +
+  geom_jitter(width = 0.1, alpha = 0.4, size = 2) +
+  labs(
+    title = "Q1: Geography Quiz Score by Map Comfort Level",
+    x = "Map Comfort (1–5)",
+    y = "Geography Quiz Percent Correct"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+  )
+```
+
+Interpretation: As a student's rating of map comfort increased, the student's average score on the geography quiz tended to increase as well. There appears to be very low variability in the responses for students who were least comfortable and most comfortable with the map (scores 1 and 5). Comfort level 4 had the most variability in percentage correct. Map comfort level 5 had the highest percentage correct, with a few outliers.
+
+###### \[Statistical Question 3 Visualization:\] Does the game that students played first (game_first) and the time that students took to finish the geography game (geo_secs) relate to student's score on the geography quiz (pct_correct)?
+
+```{r}
+library(ggplot2)
+
+ggplot(games_df, aes(
+  x = geo_secs,
+  y = pct_correct,
+  color = game_first
+)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +
+  scale_color_brewer(palette = "Set2") +
+  labs(
+    title = "Does Game Order and Geography Game Time Relate to Quiz Performance?",
+    subtitle = "Geography recall score vs. time on geography game, grouped by game played first",
+    x = "Geography Game Time (seconds)",
+    y = "Percent Correct on Geography Quiz",
+    color = "Game Played First"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "bottom"
+  )
+```
+
+Interpretation: There was much more data for students who completed the geography game first, and therefore much more variability. For students who played the Sudoku game first, nearly all of them had times between 200 to 300 seconds, as there was much less data. For both groups, as students geography game time increased, the percent that they got correct on the geography quiz tended to decrease. There is a general decreasing pattern, however the data displays that there isn't a very strong relationship.
+
+\[Statistical Question 4 Visualization:\] How do students’ map comfort levels (`map_comfort`), number of states visited (`states_visited`), and time spent following U.S. news (`news_mins`) relate to their performance on the U.S. geography recall test (`pct_correct`)?
+
+```{r}
+ggplot(games_df, aes(
+  x = states_visited,
+  y = pct_correct,
+  color = as.numeric(map_comfort),   # treat as continuous
+  size = news_mins
+)) +
+  geom_point(alpha = 0.7) +
+  scale_color_gradient(
+    low = "darkgreen",
+    high = "lightblue",
+    name = "Map Comfort"
+  ) +
+  scale_size_continuous(range = c(2, 10)) +
+  labs(
+    title = "Factors Related to U.S. Geography Recall Performance",
+    x = "Number of U.S. States Visited",
+    y = "Percent of States Recalled Correctly",
+    size = "Daily Minutes Spent Following U.S. News"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+  )
+
+```
+
+Interpretation: Those with a map comfort score of 5 tended to get a higher score on the geography quiz, whereas those who had a low map comfort score tended to receive scores around 50%. Those who visited less U.S. states tended to have lower map comfort scores, Most people who followed the news less also had lower map comfort scores, however there wasn't much of a correlation between the amount of time spent following U.S. news and the percent of states identified correctly on the geography quiz.
+
+### C) Develop 4 Regression Models based on your 4 statistical questions
+
+#### C.1. Description:
+
+Expressly for each statistical question, you will develop a regression model that directly addresses the variables and relationships specified. Be sure to interpret all the regression coefficients within each model, provide your own words of each interpretation and the ChatGPT version that you used to state your interpretations. Include the model metrics used to evaluate the model performance (e.g., R-squared, Adjusted R-squared, F -statistic, p-value).
+
+##### Model 1: Two Quantitative Explanatory Variables
+
+-   **Model 1: Two Quantitative Explanatory Variables**\
+    Build a regression model where the response variable is predicted using two quantitative explanatory variables. Clearly specify which variables are used and justify their selection based on your question. For example, use a multiple linear regression if all variables are continuous.
+
+##### Model 2: One Categorical and One Quantitative Explanatory Variable
+
+-   **Model 2: One Categorical and One Quantitative Explanatory Variable**\
+    Construct a regression model that includes one categorical and one quantitative explanatory variable to predict the response variable. Indicate how the categorical variable is encoded (e.g., dummy variables) and discuss the interpretation of coefficients for each category.
+
+##### Model 3: One Categorical and Two Quantitative Explanatory Variables (We did not do this in class)
+
+-   **Model 3: One Categorical and Two Quantitative Explanatory Variables**\
+    Develop a regression model incorporating one categorical and two quantitative explanatory variables. Explain how interactions or combined effects are modeled, and describe how each variable contributes to the prediction.
+
+##### Model 4: At Least Four Variables
+
+-   **Model 4: At Least Four Variables**\
+    Create a comprehensive regression model using at least four variables (any mix of categorical and quantitative). Explicitly list all variables included, describe their roles, and discuss the rationale for including each. Consider possible interactions or higher-order terms if relevant to your question.
+
+#### C.2. Examples: Models for *mtcars*
+
+##### Q1: What is the relationship between miles per gallon (`mpg`), vehicle weight (`wt`), and horsepower (`hp`)?
+
+```{r}
+# Model 1: Two Quantitative Explanatory Variables
+model1 <- lm(mpg ~ wt + hp, data = mtcars)
+summary(model1)
+```
+
+**Interpretation:**
+
+##### Q2: To what extent can miles per gallon (`mpg`) be explained by vehicle weight (`wt`) and engine shape (`vs`)?
+
+```{r}
+# Model 2: One Categorical and One Quantitative Explanatory Variable
+model2 <- lm(mpg ~ wt * factor(vs), data = mtcars)
+summary(model2)
+```
+
+**Interpretation:**
+
+##### Q3: How do vehicle weight (`wt`), horsepower (`hp`), and engine shape (`vs`) together influence miles per gallon (`mpg`)?
+
+```{r}
+# Model 3: One Categorical and Two Quantitative Explanatory Variables
+model3 <- lm(mpg ~ wt + hp + factor(vs), data = mtcars)
+summary(model3)
+```
+
+**Interpretation:**
+
+##### Q4: In what way do vehicle weight (`wt`), horsepower (`hp`), engine shape (`vs`), and transmission type (`am`) collectively affect miles per gallon (`mpg`)?
+
+```{r}
+# Model 4: At Least Four Variables
+model4 <- lm(mpg ~ wt + hp + factor(vs) + factor(am), data = mtcars)
+summary(model4)
+```
+
+**Interpretation:**
+
+### C.3. Place your models and interpretations here (Tasks: 12 - 15):
+
+###### \[Question 1:\] What is the relationship between Geo Quiz seconds (geo_secs) and Percentage of States identified correctly (pct_correct)?
+
+```{r}
+# Model 1: Geography Quiz Seconds and Percentage Correct
+model1 <- lm(pct_correct ~ geo_secs, data = games_df)
+summary(model1)
+```
+
+ChatGPT Interpretation: This linear regression model examines whether the time students spent on the geography game (geo_secs) predicts their geography quiz score (pct_correct). The fitted equation is **pct_correct = 87.37 – 0.1093·geo_secs**, meaning that for every additional second a student takes to finish the game, their predicted quiz score decreases by about **0.11 percentage points**. The slope is statistically significant (**p = 0.0031**), indicating that longer completion times are reliably associated with lower quiz performance. The intercept of 87.37 represents the predicted quiz score for a student who hypothetically spent zero seconds on the game, which isn’t realistic but serves as the model’s baseline. The model explains about **13.9% of the variance** in quiz scores (R² = 0.1389), showing that while game time is a meaningful predictor, most of the variation in scores is due to other factors not captured here. Overall, the results suggest that slower game completion is linked to worse quiz outcomes, but the model has limited predictive power.
+
+My Interpretation: The intecept coefficient of 87.37 represents that predicted quiz score for a student who completed the game in 0 seconds, however this intercept is not interpretable since it is impossible to finish the game in 0 seconds. For every additional 1 second a student takes to play the game, their score is expected to decrease by 0.11 percentage points on average. The p-values indicate a stronger fit with the intercept p-value of 8.26e-16 and the slope's p-value being 0.0031 since both of these values are much less than our significance level of 0.1. However, our R^2^ and Adj R\^2 of 0.1389 and 0.1243 indicate a poor model fit. The strong p-values indicate that there is a relationship, however the low coefficient or determination values indicate that the relationship is weak.
+
+###### \[Question 2:\] To what extent does Map Comfort (map_comfort) correlate with the amount of time that one takes to complete the geography quiz (geo_secs?
+
+```{r}
+# Model 2: Map Comfort and Geography Quiz Time
+model2 <- lm(pct_correct ~ map_comfort, data = games_df)
+summary(model2)
+```
+
+Interpretation: The coefficients for the intercept and for high map comfort levels of 4 and 5 are statistically significant, however the coefficients for the lower levels of 2 and 3 are not significant since they are greater than our significance level of 0.1. We have an okay R\^2 of 0.1276, however we have a very concerningly low Adjusted R\^2 of 0.0653 which means that the model is a poor fit. The p-values indicate that students with high map comfort actually do finish the geography quiz faster, however those with map comfort levels of 2 or 3 don't differ much from those with a map comfort level of 1. The effect of map comfort isn't really gradual, it's more separated as low or high. The low R squared values indicate that map comfort isn't a strong predictor of geography quiz time, however it's still somewhat statistically significant.
+
+###### \[Question 3:\] Does the game that students played first (game_first) and the time that students took to finish the geography game (geo_secs) relate to student's score on the geography quiz (pct_correct)?
+
+```{r}
+# Model 3: Game played first and game completion times
+model3 <- lm(pct_correct ~ geo_secs + game_first, data = games_df)
+summary(model3)
+```
+
+Interpretation: This model is somewhat statistically significant. The intercept and correlation coefficient for geo_secs have p-values less than our significance value of 0.1. However, the adjusted R squared decreased compared to the regular R\^2, therefore it is likely that which game was played first isn't a very strong predictor of geography quiz score. The R squared value of 0.1701 and adjusted R\^2 of 0.1414 indicates medium model fit compared to other models in this dataset and that the additional factor of game_first did not improve prediction ability.
+
+###### \[Question 4:\] How do students’ map comfort levels (`map_comfort`), number of states visited (`states_visited`), and time spent following U.S. news (`news_mins`) relate to their performance on the U.S. geography recall test (`pct_correct`)?
+
+```{r}
+# Model 4: Geography Quiz Score vs Number of States Visited and Amount of Time Spent Following the News and Map Comfort
+model4 <- lm(pct_correct ~ map_comfort * states_visited + news_mins, data = games_df)
+summary(model4)
+```
+
+Interaction:
+
+We have significantly higher R\^2 and Adj. R squared values compared to our prior models, with an R squared of 0.394 and and an adjusted R-squared of 0.2622. However the p-values of the coefficients don't look the best, as only the intercept and map comfort level 2 intercept and slope combined with number of states visited is significant. The rest of the p values for the coefficients are all greater than 0.1. This means that while the overall model with the interactions and additives has decent prediction power, the individual p-values indicate that the individual predictors are not significant. This may indicate some multicollinearity.
+
+### D) Selecting the Best Model and Making Predictions
+
+#### \[Task 16\] : Compare Model R-Squared Values
+
+-   Review the R-squared values for each regression model developed in Section C.
+-   Identify which model has the highest R-squared value, indicating the best fit to your data.
+
+The model with the highest R\^2 value was model 4, which predicted geography quiz score based on map comfort, number of states visited, and the amount of time spent following the news, with an R squared value of 0.394 and an adjusted R-squared of 0.2622. The R squared values for the other models were pretty low, indicating a lack of strength in the relationships between variables and possible data quality issues.
+
+#### \[Task 17\]: Select the Best Model
+
+-   Clearly state which model is selected based on its R-squared value.
+-   Briefly justify your choice using the R-squared comparison.
+
+Model 4 is selected based on its high R\^2 value, relative to the other R squared values which tended to be less than 0.15. The R-squared value for model 4 is around double that amount, indicating a stronger overall model
+
+#### \[Task 18\]: Make a Prediction for a New Observation
+
+-   Provide the values for each variable required by the selected model for a new observation.
+-   Use the selected model to calculate the predicted response value for this new observation.
+-   Show the R syntax or calculation used to generate the prediction.
+
+```{r}
+predict(model4)
+```
+
+#### \[Task 19\]: Interpret the Prediction
+
+-   Explain what the predicted value means in the context of your data and analysis.
+-   Discuss why this prediction is plausible, referencing patterns or relationships observed in your dataset.
+
+#### \[Task 20\]: Summarize
+
+-   Conclude with a brief statement on the reliability of the prediction and how it supports your analysis goals.
+
+###### Task 21: Identifying Design Issues
+
+Based on your classroom experience and the data you collected, what shortcomings or limitations did you observe in the experimental design? Consider factors such as data collection methods, variable selection, sample size, or any other aspects that may have impacted the results. Discuss how these issues could have influenced your findings and suggest possible improvements for future studies.
+
+Some of the responses were inaccurate. For example. there were multiple geography quiz times over 300 seconds which was supposed to be the maximum, and some around 0 seconds which is impossible. The quizzes also just tended to take up all the time for most students which didn't allow for much diversity in data and wasn't easy to analyze. Most students tended to have similar responses (ex. took full time to complete quizzes, visited 20 states or less, don't play sudoku). These issues made it difficult to find accurate correlation as there was lack of diversity in explanatory values however many more possible explanatory values that ended up seeming like outliers. This issue makes me realize the importance of maintaining data quality and ensuring accurate responses.
+
+###### Task 22: Future Implementations
+
+What recommendations do you have for improving future iterations of this study? Consider aspects such as refining survey questions, capturing additional relevant variables, increasing sample size, or diversifying participant backgrounds. Explain how your suggestions could enhance the quality and generalizability of the analysis.
+
+In the future, students should be aware that the data from the Google Form will be used for their own data project. Ensuring students accurately complete the questionarre by informing them and maybe having them upload a screenshot could help in maintaining data quality. Increasing sample size could also help, and having more students who play sudoku or have vistited more states could help as well since most students don't play sudoku and haven't visited more than 25 states.
